@@ -1,0 +1,9 @@
+{
+  "damage_sprites.npz": {
+    "source": "https://github.com/daniela997/FilmDamageSimulator",
+    "commit": "bffc46553a3255d8bc4432a1a3102a0fec3dce7a",
+    "license": "MIT (LICENSE.FilmDamageSimulator), Copyright (c) 2022 Daniela Ivanova",
+    "paper": "Ivanova et al., Simulating analogue film damage to analyse and improve artefact restoration on high-resolution scans, Eurographics 2023 (arXiv:2302.10004)",
+    "what": "Alpha masks of the annotated dust, dirt, short hair, long hair and scratch artefacts cut out of the repository's ten scans of empty 35 mm frames (frame height 3408 px = 24 mm); background subtracted, randomly subsampled (dust 1500, dirt 900, short hair 700, long hair 398, scratch 66)."
+  }
+}
