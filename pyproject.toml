@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-av1filmgrain"
 version = "0.1.0"
-description = "Film and tape looks for clean frames (tone, LUTs, halation, real scanned dust and hair, VHS/NTSC, optical sound), encoded to AV1 with decoder-synthesised film grain."
+description = "Film and tape looks for clean frames (tone, LUTs, halation, real scanned dust and hair, VHS/NTSC, CRT, optical sound), encoded to AV1 with decoder-synthesised film grain."
 authors = [{ name = "Nynxz", email = "contact@nynxz.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -19,7 +19,7 @@ BugTracker = "https://github.com/Nynxz/ComfyUI-AV1FilmGrain/issues"
 PublisherId = "nynxz"
 DisplayName = "AV1 Film Grain"
 Icon = "https://avatars.githubusercontent.com/u/60878743?v=4"
-Tags = ["video", "av1", "film-grain", "svt-av1", "grain", "encode", "film-look", "lut", "vhs", "ntsc"]
+Tags = ["video", "av1", "film-grain", "svt-av1", "grain", "encode", "film-look", "lut", "vhs", "ntsc", "crt", "scanlines"]
 Repository = "https://github.com/Nynxz/ComfyUI-AV1FilmGrain"
 
 [tool.ruff]

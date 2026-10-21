@@ -351,6 +351,7 @@ def test_extension_exposes_all_nodes():
             "av1grain.FilmDamage",
             "av1grain.FilmSound",
             "av1grain.VHSTape",
+            "av1grain.CRTDisplay",
             "av1grain.AV1FilmGrainEncode",
             "av1grain.AV1FilmGrainPreview",
             "av1grain.SaveFilmLookLUT",

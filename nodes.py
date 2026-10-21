@@ -21,7 +21,7 @@ from comfy.cli_args import args
 from comfy_api.latest import InputImpl, io, ui
 from PIL import Image
 
-from . import av1enc, filmdamage, filmlook, filmsound, fxchain, grain, vhs
+from . import av1enc, crt, filmdamage, filmlook, filmsound, fxchain, grain, vhs
 from .pack import PackNode
 
 log = logging.getLogger(__name__)
@@ -1267,3 +1267,110 @@ class VHSTape(PackNode):
             ).to(out.device, torch.float32)
             progress.update(chunk.shape[0])
         return io.NodeOutput(out, table, chain)
+
+
+_FROM_PRESET = "from preset"
+
+
+class CRTDisplay(PackNode):
+    CHUNK = 8
+
+    @classmethod
+    def define_schema(cls):
+        return cls.make_schema(
+            node_id="CRTDisplay",
+            display_name="CRT Display",
+            description=(
+                "The picture as seen on a CRT: each line drawn by an electron beam that widens with "
+                "brightness (scanlines in the shadows, blooming highlights), a phosphor mask (aperture "
+                "grille, slot mask or shadow mask), red/blue convergence error, glow and glass halation, "
+                "phosphor persistence and a curved tube. Put it after VHS / NTSC to watch the tape on a TV."
+                "\n\nThe mask and scanlines are fine, high-contrast patterns, which encoders find expensive "
+                "and 4:2:0 colour halves: use a low crf, and judge the mask at 1:1, not in a scaled preview."
+                "\n\n" + _STREAM_TIP
+            ),
+            inputs=[
+                io.Image.Input("images", optional=True),
+                io.Combo.Input(
+                    "preset", options=list(crt.PRESETS), default="consumer TV",
+                    tooltip="\n".join(f"{k}: {v[0]}" for k, v in crt.PRESETS.items()),
+                ),
+                _slider("mask", 1.0, 0.0, 2.0, 0.05, "Phosphor mask strength, times the preset's. 0 = no mask."),
+                _slider("scanlines", 1.0, 0.0, 1.5, 0.05, "How visible the beam lines are, times the preset's."),
+                _slider("glow", 1.0, 0.0, 4.0, 0.05, "Phosphor glow and glass halation, times the preset's."),
+                _slider("curvature", 0.3, 0.0, 1.0, 0.01, "Curved face plate and rounded tube corners. 0 = flat."),
+                _slider(
+                    "persistence", 0.0, 0.0, 0.95, 0.01,
+                    "Phosphor afterglow: bright moving things leave a short fading trail. 0 = none.",
+                ),
+                _slider(
+                    "hum_bar", 0.0, 0.0, 1.0, 0.01,
+                    "A soft dark band rolling slowly down the screen, as when a camera films a TV. 0 = none.",
+                ),
+                io.Combo.Input("mask_type", options=[_FROM_PRESET, *crt.MASKS], default=_FROM_PRESET, advanced=True,
+                               tooltip="aperture grille: vertical stripes (Trinitron). slot mask: stripes broken "
+                               "into staggered slots (most TVs). shadow mask: dots (monitors)."),
+                io.Int.Input("lines", default=0, min=0, max=2160, advanced=True,
+                             tooltip="Scanlines in the picture height; 0 = the preset's (240 or 480). Rounded so "
+                             "each line is a whole number of pixels."),
+                _slider("mask_size", 1.0, 0.25, 4.0, 0.05,
+                        "Phosphor triad size, times the preset's. Triads are at least 3 pixels wide.", advanced=True),
+                _slider("convergence", 1.0, 0.0, 5.0, 0.05,
+                        "Red/blue misalignment, times the preset's.", advanced=True),
+                _slider("corner", 0.5, 0.0, 1.0, 0.01, "How rounded the tube's corners are.", advanced=True),
+                _fx_input(),
+            ],
+            outputs=[io.Image.Output(display_name="images"), _fx_output()],
+        )  # fmt: skip
+
+    @classmethod
+    def execute(
+        cls,
+        preset,
+        mask,
+        scanlines,
+        glow,
+        curvature,
+        persistence,
+        hum_bar=0.0,
+        mask_type=_FROM_PRESET,
+        lines=0,
+        mask_size=1.0,
+        convergence=1.0,
+        corner=0.5,
+        images=None,
+        fx=None,
+    ) -> io.NodeOutput:
+        base = crt.PRESETS[preset][1]
+        d = replace(
+            base,
+            mask=base.mask if mask_type == _FROM_PRESET else mask_type,
+            mask_strength=min(1.0, base.mask_strength * mask),
+            triads=base.triads / mask_size,
+            lines=lines or base.lines,
+            scanlines=min(1.0, base.scanlines * scanlines),
+            glow=base.glow * glow,
+            halation=base.halation * glow,
+            convergence=base.convergence * convergence,
+            persistence=persistence,
+            hum_bar=hum_bar,
+            curvature=curvature,
+            corner=corner,
+        )
+        chain = _chain(fx).then(fxchain.crt_step(d))
+        if images is None:
+            return io.NodeOutput(None, chain)
+        device = comfy.model_management.get_torch_device()
+        n, h, w = images.shape[0], images.shape[1], images.shape[2]
+        out = torch.empty(
+            (n, h, w, 3), dtype=torch.float32, device=comfy.model_management.intermediate_device()
+        )
+        progress = comfy.utils.ProgressBar(n)
+        prev = None
+        for start in range(0, n, cls.CHUNK):
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            chunk = images[start : start + cls.CHUNK, ..., :3].to(device)
+            frames, prev = crt.apply(chunk, d, prev, frame_offset=start)
+            out[start : start + chunk.shape[0]] = frames.to(out.device, torch.float32)
+            progress.update(chunk.shape[0])
+        return io.NodeOutput(out, chain)

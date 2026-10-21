@@ -6,6 +6,7 @@ filmlook.py    tone curve, colour looks, .cube / Hald LUTs, halation, bloom and 
 filmdamage.py  dust, dirt and hair (real scanned artefacts), scratches, leaks, cue marks, gate.
 filmsound.py   optical soundtrack: band-limit, hiss, crackle, wow and flutter.
 vhs.py         NTSC composite and VHS tape, simulated as signals; its noise as an AV1 grain table.
+crt.py         a CRT display: beam scanlines, phosphor mask, glow, persistence, curved tube.
 fxchain.py     effects run inside the encoder a few frames at a time, and film frame-rate conversion.
 grain.py       film grain tables: format, validation, photon noise and stylised generators.
 av1enc.py      encoder capabilities, the SVT-AV1 / libaom routes, muxing and verification.
@@ -18,6 +19,7 @@ from comfy_api.latest import ComfyExtension, io
 from .nodes import (
     AV1FilmGrainEncode,
     AV1FilmGrainPreview,
+    CRTDisplay,
     FilmDamage,
     FilmLook,
     FilmSound,
@@ -32,6 +34,7 @@ class AV1FilmGrainExtension(ComfyExtension):
             FilmLook,
             FilmDamage,
             VHSTape,
+            CRTDisplay,
             FilmSound,
             AV1FilmGrainEncode,
             AV1FilmGrainPreview,

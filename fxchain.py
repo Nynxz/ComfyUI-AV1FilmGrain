@@ -21,12 +21,12 @@ from dataclasses import dataclass, field
 
 import torch
 
-from . import filmdamage, filmlook, vhs
+from . import crt, filmdamage, filmlook, vhs
 
 
 @dataclass(frozen=True)
 class Step:
-    kind: str  # "look", "damage" or "vhs"
+    kind: str  # "look", "damage", "vhs" or "crt"
     settings: tuple
 
 
@@ -59,6 +59,10 @@ def vhs_step(
     tape: vhs.Tape, bake_noise: bool, crt_curvature: float = 0.0, crt_corner: float = 0.5
 ) -> Step:
     return Step("vhs", (tape, bake_noise, crt_curvature, crt_corner))
+
+
+def crt_step(display: crt.Display) -> Step:
+    return Step("crt", (display,))
 
 
 @dataclass
@@ -114,6 +118,11 @@ class Runner:
                     bake_noise=bake,
                     crt_curvature=curvature,
                     crt_corner=corner,
+                )
+            elif step.kind == "crt":
+                # Phosphor persistence carries the last frame over; chunks arrive in order.
+                x, self.state[i] = crt.apply(
+                    x, step.settings[0], prev=self.state.get(i), frame_offset=frame_offset
                 )
             else:
                 raise ValueError(f"unknown effect {step.kind!r}")

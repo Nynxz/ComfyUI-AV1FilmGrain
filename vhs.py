@@ -352,12 +352,15 @@ def from_raster(yiq: torch.Tensor, size: tuple[int, int]) -> torch.Tensor:
     return rgb.clamp(0, 1).permute(0, 2, 3, 1)
 
 
-def crt(frames: torch.Tensor, curvature: float, corner: float = 0.5) -> torch.Tensor:
+def crt(
+    frames: torch.Tensor, curvature: float, corner: float = 0.5, clamp: bool = True
+) -> torch.Tensor:
     """A curved CRT screen on (N, H, W, 3) frames: barrel bulge, rounded tube corners, edge falloff.
 
     The picture is mapped as if seen on a convex face plate: each point samples the image at
     (1 + k r^2) times its position, so straight edges bow outwards into a rounded, bulging shape inside
-    black. Static, so it costs the encoder almost nothing.
+    black. Static, so it costs the encoder almost nothing. ``clamp=False`` keeps values above 1 (linear
+    light with highlights to soft-clip later).
     """
     if curvature <= 0:
         return frames
@@ -388,7 +391,8 @@ def crt(frames: torch.Tensor, curvature: float, corner: float = 0.5) -> torch.Te
     # A curved face plate is a little darker towards its edges.
     falloff = 1 - 0.25 * curvature * (sx * sx * 0.6 + sy * sy * 0.4)
     out = out * (inside * falloff.clamp(0, 1)).view(1, 1, h, w)
-    return out.clamp(0, 1).permute(0, 2, 3, 1).to(frames.dtype)
+    out = out.clamp(0, 1) if clamp else out.clamp_min(0)
+    return out.permute(0, 2, 3, 1).to(frames.dtype)
 
 
 def apply(

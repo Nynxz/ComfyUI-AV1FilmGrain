@@ -9,10 +9,10 @@ encode, while noise baked into the pixels is the most expensive thing a video en
 to keep.
 
 ```
-clean frames ──► Film Look ──► Film Damage ──► VHS / NTSC ──► AV1 Film Grain Encode ──► .webm / .mp4 / .mkv
-                 tone, colour,  dust, hair,     composite,     grain preset / photon     grain = parameters,
-                 LUT, halation  scratches, gate tape, CRT      noise / table / tape      the player adds it
-audio ─────────► Film Sound ──────────────────────────────────┘                          (+ H.264 share copy)
+clean frames ──► Film Look ──► Film Damage ──► VHS / NTSC ──► CRT Display ──► AV1 Film Grain Encode ──► .webm / .mp4 / .mkv
+                 tone, colour,  dust, hair,     composite,     scanlines,      grain preset / photon     grain = parameters,
+                 LUT, halation  scratches, gate tape           mask, glow      noise / table / tape      the player adds it
+audio ─────────► Film Sound ──────────────────────────────────────────────────┘                          (+ H.264 share copy)
                  optical track, crackle, wow
 ```
 
@@ -110,12 +110,46 @@ draws it. *Baked* puts the exact noise in the pixels instead, at a much larger f
 (`crt_corner`) and darkens slightly towards the edges. The picture is zoomed so the curve never leaves black
 edges.
 
+## CRT Display
+
+**CRT Display** shows the picture as it looks on a tube. Put it after VHS / NTSC to watch the tape on a TV.
+
+- **Scanlines.** The picture is resampled to the tube's line count, and each line is drawn by a Gaussian
+  beam per colour gun. A brighter beam is wider, so the gaps between lines are dark in the shadows and close
+  up in the highlights. The line count is rounded so each line is a whole number of pixels. 480 lines on a
+  1248-pixel frame draws 416 lines of exactly 3 rows instead of beating into uneven stripes.
+- **Phosphor mask**: aperture grille (vertical stripes), slot mask (staggered slots) or shadow mask (dots).
+  It's drawn last, at 1:1 screen pixels, so it stays fine instead of being resampled into moiré.
+- **Convergence**: red and blue land a fraction of a pixel off green.
+- **Glow and halation** spread light in the phosphor and the glass without adding any.
+- **Persistence**: bright moving things leave a short fading trail.
+- **Hum bar**: a soft dark band rolling down the screen, as when a camera films a TV.
+- **Curvature**: the bulging face plate and rounded tube corners.
+
+| preset | |
+|---|---|
+| consumer TV | slot mask, 480 lines, soft beam, a little glow |
+| classic scanlines | 240 sharp horizontal lines with dark gaps and no visible mask: the usual CRT look |
+| Trinitron | aperture grille, crisp beam |
+| arcade (240p) | 240 lines with strong gaps, coarse slot mask |
+| PVM (broadcast) | aperture grille, sharp 480 lines, little glow |
+| PC monitor | fine shadow mask of dots, no visible lines |
+
+`mask`, `scanlines` and `glow` scale the preset's own values. The mask and lines darken the picture as on a
+real tube, so it is brought back up to the same average brightness and highlights are soft-clipped.
+
+**Encoding it.** The pattern is static, so it costs little after the first frame. On a 24-frame 1680×1248
+clip at crf 20 the CRT versions came out *smaller* than the plain one (consumer TV 192 kB, arcade 152 kB,
+plain 246 kB), because the line resampling removes vertical detail. Both the mask and the lines survive.
+4:2:0 halves the colour resolution, though, so the mask's colour mostly doesn't, and it shows as neutral
+stripes. Judge the mask at 1:1, not in a scaled preview.
+
 ## Long clips: the effects chain
 
 ComfyUI passes video between nodes as whole float32 batches: 25 MB per 1680×1248 frame, and every node in a
 chain keeps its own copy. On long clips that runs out of RAM.
 
-So each effect node (Film Look, Film Damage, VHS / NTSC) also has an `fx` input and output. Leave `images`
+So each effect node (Film Look, Film Damage, VHS / NTSC, CRT Display) also has an `fx` input and output. Leave `images`
 unconnected, chain the nodes by `fx`, and connect the last one to the encoder's `effects`. The encoder then
 pulls the source frames, runs the whole chain a few frames at a time, and encodes as it goes. The output
 frames are the same as the batch nodes give (checked by the tests). On a 96-frame 1680×1248 clip the chain
@@ -289,10 +323,11 @@ COMFY_ROOT=/path/to/ComfyUI python tests/test_grain.py   # tables, validation, g
 COMFY_ROOT=/path/to/ComfyUI python tests/test_filmlook.py # tone, looks, LUTs, optics
 COMFY_ROOT=/path/to/ComfyUI python tests/test_damage_sound.py # damage schedules, gauges, sync of the sound
 COMFY_ROOT=/path/to/ComfyUI python tests/test_vhs.py     # NTSC raster, tape presets, noise table, CRT
+COMFY_ROOT=/path/to/ComfyUI python tests/test_crt.py     # beam lines, masks, brightness, persistence, hum bar
 COMFY_ROOT=/path/to/ComfyUI python tests/test_stream.py  # the effects chain, retiming, share copy
 COMFY_ROOT=/path/to/ComfyUI python tests/test_encode.py  # real encodes, decoded and measured; the nodes
 COMFY_ROOT=/path/to/ComfyUI python tests/benchmark.py    # the table above
 ```
 
-`filmlook.py`, `filmdamage.py`, `filmsound.py`, `vhs.py`, `fxchain.py`, `grain.py` and `av1enc.py` don't import ComfyUI. Photon noise follows the model of libaom's
+`filmlook.py`, `filmdamage.py`, `filmsound.py`, `vhs.py`, `crt.py`, `fxchain.py`, `grain.py` and `av1enc.py` don't import ComfyUI. Photon noise follows the model of libaom's
 `examples/photon_noise_table.c` (BSD 2-Clause), reimplemented here.
