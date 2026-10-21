@@ -215,9 +215,10 @@ SvtAv1EncApp and rav1e read, starting with `filmgrn1`. Every table is validated 
 specification's ranges (point counts, increasing x, AR lag and coefficients, shifts, 4:2:0 chroma
 rules) before encoding, and errors name the field. Only files in that folder can be picked.
 
-No third-party tables are bundled. If you use some, for example
-[Boulder08/av1-graintables](https://github.com/Boulder08/av1-graintables) or
-[nekotrix/AV1-Photon-Noise-Tables](https://github.com/nekotrix/AV1-Photon-Noise-Tables), check their licences.
+No third-party tables are bundled.
+[nekotrix/AV1-Photon-Noise-Tables](https://github.com/nekotrix/AV1-Photon-Noise-Tables) has ready-made photon
+noise tables for common resolutions. It states no licence, so ask before redistributing them. The pack's own
+photon noise mode generates the same kind of table for any resolution.
 
 ## Encoders
 
